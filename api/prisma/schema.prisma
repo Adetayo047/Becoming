@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String  @id @default(uuid())
+  email                String  @unique
+  passwordHash         String  @map("password_hash")
+  fullName             String  @default("") @map("full_name")
+  avatarUrl            String? @map("avatar_url")
+  tier                 Tier    @default(free)
+  onboardingComplete   Boolean @default(false) @map("onboarding_complete")
+  pushToken            String? @map("push_token")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  goals                 Goal[]
+  dailyTasks            DailyTask[]
+  habitStreaks          HabitStreak[]
+  weeklyReviews         WeeklyReview[]
+  accountabilityOwned   AccountabilityPartner[] @relation("user")
+  accountabilityPartner AccountabilityPartner[] @relation("partner")
+
+  @@map("users")
+}
+
+enum Tier {
+  free
+  pro
+  plus
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  userId      String     @map("user_id")
+  title       String
+  description String?
+  category    Category
+  targetDate  DateTime?  @map("target_date")
+  status      GoalStatus @default(active)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones     Milestone[]
+  monthlyTargets MonthlyTarget[]
+  weeklyFocuses  WeeklyFocus[]
+  dailyTasks     DailyTask[]
+
+  @@map("goals")
+}
+
+enum Category {
+  career
+  skills
+  health
+  money
+  relationships
+}
+
+enum GoalStatus {
+  active
+  paused
+  completed
+}
+
+model Milestone {
+  id         String     @id @default(uuid())
+  goalId     String     @map("goal_id")
+  title      String
+  targetDate DateTime?  @map("target_date")
+  status     ItemStatus @default(pending)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+model MonthlyTarget {
+  id        String     @id @default(uuid())
+  goalId    String     @map("goal_id")
+  month     String
+  title     String
+  status    ItemStatus @default(pending)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("monthly_targets")
+}
+
+model WeeklyFocus {
+  id        String     @id @default(uuid())
+  goalId    String     @map("goal_id")
+  weekStart DateTime   @map("week_start") @db.Date
+  title     String
+  status    ItemStatus @default(pending)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("weekly_focuses")
+}
+
+model DailyTask {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  goalId      String?   @map("goal_id")
+  title       String
+  date        DateTime  @db.Date
+  completed   Boolean   @default(false)
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@map("daily_tasks")
+}
+
+model HabitStreak {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  taskTitle     String    @map("task_title")
+  currentStreak Int       @default(0) @map("current_streak")
+  longestStreak Int       @default(0) @map("longest_streak")
+  lastCompleted DateTime? @map("last_completed")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskTitle])
+  @@map("habit_streaks")
+}
+
+model WeeklyReview {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  weekStart        DateTime  @map("week_start") @db.Date
+  completedCount   Int       @default(0) @map("completed_count")
+  blockedText      String?   @map("blocked_text")
+  carryForwardText String?   @map("carry_forward_text")
+  rating           Int?
+  aiInsight        String?   @map("ai_insight")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+  @@map("weekly_reviews")
+}
+
+model AccountabilityPartner {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  partnerUserId String            @map("partner_user_id")
+  status        PartnershipStatus @default(pending)
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  user    User @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  partner User @relation("partner", fields: [partnerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, partnerUserId])
+  @@map("accountability_partners")
+}
+
+enum ItemStatus {
+  pending
+  completed
+}
+
+enum PartnershipStatus {
+  pending
+  active
+}

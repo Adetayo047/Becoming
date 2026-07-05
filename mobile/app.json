@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Becoming",
+    "slug": "becoming",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FDF8F2",
+    "scheme": "becoming",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.becoming.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6C5CE7",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "package": "com.becoming.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
