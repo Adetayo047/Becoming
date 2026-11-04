@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +23,7 @@ export default function SignUp() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -32,6 +32,7 @@ export default function SignUp() {
     if (!fullName.trim()) errs.fullName = 'Enter your name';
     if (!email.trim() || !email.includes('@')) errs.email = 'Enter a valid email';
     if (password.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (!termsAccepted) errs.terms = 'You must accept the Terms of Service and Privacy Policy';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -43,7 +44,8 @@ export default function SignUp() {
       const { data, error } = await auth.signUp(
         email.trim().toLowerCase(),
         password,
-        fullName.trim()
+        fullName.trim(),
+        termsAccepted
       );
 
       if (error || !data) {
@@ -55,12 +57,14 @@ export default function SignUp() {
       setToken(data.token);
       setUser(data.user);
 
-      // Navigate based on onboarding status
-      if (!data.user.onboardingComplete) {
-        router.replace('/(onboarding)/step-1');
-      } else {
-        router.replace('/(tabs)');
+      if (data.devVerificationCode) {
+        Alert.alert(
+          'Email delivery not configured',
+          `For testing, your verification code is ${data.devVerificationCode}.`
+        );
       }
+
+      router.replace('/(auth)/verify-email');
     } finally {
       setLoading(false);
     }
@@ -70,7 +74,7 @@ export default function SignUp() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <ScrollView
           contentContainerStyle={styles.container}
@@ -117,13 +121,29 @@ export default function SignUp() {
             />
           </View>
 
-          <Button title="Create Account" onPress={handleSignUp} loading={loading} style={styles.btn} />
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setTermsAccepted((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+              {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.terms}>
+              I agree to the{' '}
+              <Text style={styles.link} onPress={() => router.push('/(auth)/terms')}>
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text style={styles.link} onPress={() => router.push('/(auth)/terms')}>
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </TouchableOpacity>
+          {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
 
-          <Text style={styles.terms}>
-            By creating an account, you agree to our{' '}
-            <Text style={styles.link}>Terms of Service</Text> and{' '}
-            <Text style={styles.link}>Privacy Policy</Text>.
-          </Text>
+          <Button title="Create Account" onPress={handleSignUp} loading={loading} style={styles.btn} />
 
           <View style={styles.signinRow}>
             <Text style={styles.signinText}>Already have an account? </Text>
@@ -148,9 +168,16 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: Fonts.regular, fontSize: 15, color: Colors.text.secondary, lineHeight: 22 },
   form: { gap: Spacing.md, marginBottom: Spacing.lg },
   btn: { marginBottom: Spacing.md },
+  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginBottom: Spacing.sm },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center', marginTop: 2,
+  },
+  checkboxChecked: { backgroundColor: Colors.purple, borderColor: Colors.purple },
+  checkmark: { color: Colors.white, fontSize: 13, fontFamily: Fonts.bold },
+  errorText: { fontFamily: Fonts.regular, fontSize: 12, color: Colors.error, marginBottom: Spacing.sm },
   terms: {
-    fontFamily: Fonts.regular, fontSize: 12, color: Colors.text.muted,
-    textAlign: 'center', lineHeight: 18, marginBottom: Spacing.lg,
+    flex: 1, fontFamily: Fonts.regular, fontSize: 12, color: Colors.text.muted, lineHeight: 18,
   },
   link: { color: Colors.purple },
   signinRow: { flexDirection: 'row', justifyContent: 'center' },

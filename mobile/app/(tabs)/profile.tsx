@@ -8,12 +8,15 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { removeToken } from '../../lib/api';
 import { useAuthStore } from '../../lib/store';
+import { shareAppInvite } from '../../lib/invite';
 import { Card } from '../../components/ui/Card';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { user, signOut } = useAuthStore();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -40,6 +43,7 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.pageTitle}>Profile</Text>
 
+        <TouchableOpacity onPress={() => router.push('/growth-passport')} activeOpacity={0.8}>
         <Card style={styles.profileCard} variant="elevated">
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{user?.fullName?.[0]?.toUpperCase() || 'B'}</Text>
@@ -49,13 +53,15 @@ export default function ProfileScreen() {
           <View style={[styles.tierBadge, { backgroundColor: tierColor + '20' }]}>
             <Text style={[styles.tierText, { color: tierColor }]}>{tierLabel} Plan</Text>
           </View>
+          <Text style={styles.passportLink}>View Growth Passport →</Text>
         </Card>
+        </TouchableOpacity>
 
         {user?.tier === 'free' && (
-          <TouchableOpacity style={styles.upgradeBanner} activeOpacity={0.8}>
-            <View>
+          <TouchableOpacity style={styles.upgradeBanner} activeOpacity={0.8} onPress={() => router.push('/billing')}>
+            <View style={styles.upgradeBody}>
               <Text style={styles.upgradeTitle}>Upgrade to Pro ✨</Text>
-              <Text style={styles.upgradeSub}>Unlimited goals, AI assist, accountability partner</Text>
+              <Text style={styles.upgradeSub}>Unlimited goals, AI Architect, growth trends</Text>
             </View>
             <Text style={styles.upgradePrice}>₦2,500/mo</Text>
           </TouchableOpacity>
@@ -64,12 +70,15 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           {[
-            { icon: '🔔', label: 'Notifications', sub: 'Manage push alerts' },
-            { icon: '📅', label: 'Calendar Sync', sub: 'Connect Google Calendar' },
-            { icon: '🤝', label: 'Accountability Partner', sub: 'Invite someone you trust' },
-            { icon: '🔒', label: 'Change Password', sub: 'Update your password' },
+            { icon: '📜', label: 'Activity History', sub: 'Your logged wins over time', onPress: () => router.push('/activity-history') },
+            { icon: '🔔', label: 'Notifications & AI Coach', sub: 'Alerts, AI personality, wake-up call', onPress: () => router.push('/notifications-settings') },
+            { icon: '💳', label: 'Plan & Billing', sub: user?.tier === 'free' ? 'Free plan · see what Pro unlocks' : `${user?.tier === 'plus' ? 'Plus' : 'Pro'} plan · manage your subscription`, onPress: () => router.push('/billing') },
+            { icon: '📅', label: 'Calendar Sync', sub: 'Connect Google Calendar', onPress: () => router.push('/calendar-sync') },
+            { icon: '🤝', label: 'Accountability Partner', sub: 'Invite someone you trust', onPress: () => router.push('/accountability') },
+            { icon: '💌', label: 'Invite Friends', sub: 'Share Becoming on WhatsApp, SMS…', onPress: () => shareAppInvite(user?.email) },
+            { icon: '🔒', label: 'Change Password', sub: 'Update your password', onPress: () => router.push('/change-password') },
           ].map((item) => (
-            <TouchableOpacity key={item.label} style={styles.settingRow}>
+            <TouchableOpacity key={item.label} style={styles.settingRow} onPress={item.onPress}>
               <Text style={styles.settingIcon}>{item.icon}</Text>
               <View style={styles.settingBody}>
                 <Text style={styles.settingLabel}>{item.label}</Text>
@@ -88,6 +97,10 @@ export default function ProfileScreen() {
           >
             <Text style={styles.settingIcon}>🚪</Text>
             <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.settingRow, styles.signOutRow]} onPress={() => router.push('/delete-account')}>
+            <Text style={styles.settingIcon}>🗑️</Text>
+            <Text style={styles.deleteText}>Delete or Deactivate Account</Text>
           </TouchableOpacity>
         </View>
 
@@ -108,10 +121,12 @@ const styles = StyleSheet.create({
   email: { fontFamily: Fonts.regular, fontSize: 14, color: Colors.text.muted, marginBottom: Spacing.md },
   tierBadge: { paddingVertical: 4, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
   tierText: { fontFamily: Fonts.semiBold, fontSize: 12 },
+  passportLink: { fontFamily: Fonts.medium, fontSize: 12, color: Colors.purple, marginTop: Spacing.md },
   upgradeBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Colors.purple, borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.xl,
   },
+  upgradeBody: { flex: 1, marginRight: Spacing.md },
   upgradeTitle: { fontFamily: Fonts.semiBold, fontSize: 15, color: Colors.white, marginBottom: 2 },
   upgradeSub: { fontFamily: Fonts.regular, fontSize: 12, color: Colors.white + 'CC' },
   upgradePrice: { fontFamily: Fonts.bold, fontSize: 16, color: Colors.orange },
@@ -125,5 +140,6 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 18, color: Colors.grey[400] },
   signOutRow: { borderBottomWidth: 0 },
   signOutText: { fontFamily: Fonts.medium, fontSize: 15, color: Colors.error, flex: 1 },
+  deleteText: { fontFamily: Fonts.regular, fontSize: 14, color: Colors.text.muted, flex: 1 },
   version: { fontFamily: Fonts.regular, fontSize: 12, color: Colors.text.muted, textAlign: 'center', marginTop: Spacing.lg },
 });

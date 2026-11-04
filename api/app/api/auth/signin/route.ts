@@ -24,10 +24,15 @@ export async function POST(req: NextRequest) {
       return err('Invalid email or password', 401);
     }
 
+    // Signing in is how a deactivated account comes back.
+    const reactivated = !!user.deactivatedAt;
+    if (reactivated) await prisma.user.update({ where: { id: user.id }, data: { deactivatedAt: null } });
+
     const token = signToken({ userId: user.id, email: user.email });
 
     return ok({
       token,
+      reactivated,
       user: {
         id: user.id,
         email: user.email,
@@ -35,6 +40,7 @@ export async function POST(req: NextRequest) {
         tier: user.tier,
         onboardingComplete: user.onboardingComplete,
         avatarUrl: user.avatarUrl,
+        emailVerified: user.emailVerified,
         createdAt: user.createdAt,
       },
     });

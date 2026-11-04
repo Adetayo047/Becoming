@@ -8,15 +8,54 @@ datasource db {
 }
 
 model User {
-  id                   String  @id @default(uuid())
-  email                String  @unique
-  passwordHash         String  @map("password_hash")
-  fullName             String  @default("") @map("full_name")
-  avatarUrl            String? @map("avatar_url")
-  tier                 Tier    @default(free)
-  onboardingComplete   Boolean @default(false) @map("onboarding_complete")
-  pushToken            String? @map("push_token")
-  createdAt            DateTime @default(now()) @map("created_at")
+  id                      String             @id @default(uuid())
+  email                   String             @unique
+  passwordHash            String             @map("password_hash")
+  fullName                String             @default("") @map("full_name")
+  avatarUrl               String?            @map("avatar_url")
+  tier                    Tier               @default(free)
+  onboardingComplete      Boolean            @default(false) @map("onboarding_complete")
+  pushToken               String?            @map("push_token")
+  notificationsEnabled    Boolean            @default(true) @map("notifications_enabled")
+  nudgeFrequency          NudgeFrequency     @default(balanced) @map("nudge_frequency")
+  stoicMode               Boolean            @default(false) @map("stoic_mode")
+  resetToken              String?            @map("reset_token")
+  resetTokenExpiry        DateTime?          @map("reset_token_expiry")
+  googleAccessToken       String?            @map("google_access_token")
+  googleRefreshToken      String?            @map("google_refresh_token")
+  googleTokenExpiry       DateTime?          @map("google_token_expiry")
+  googleCalendarConnected Boolean            @default(false) @map("google_calendar_connected")
+  // Existing rows (seeded/testing accounts) default to verified so this
+  // doesn't lock anyone out retroactively — only new signups start false.
+  emailVerified           Boolean            @default(true) @map("email_verified")
+  verificationCode        String?            @map("verification_code")
+  verificationCodeExpiry  DateTime?          @map("verification_code_expiry")
+  termsAcceptedAt         DateTime?          @map("terms_accepted_at")
+  aiPersonality           AiPersonality      @default(encouraging) @map("ai_personality")
+  focusHoursStart         String?            @map("focus_hours_start") // "HH:MM"
+  focusHoursEnd           String?            @map("focus_hours_end")
+  progressVisibility      ProgressVisibility @default(trusted) @map("progress_visibility")
+  // Wake-Up Call: a scheduled in-app voice conversation with the AI
+  // Architect. Time is plain "HH:MM" in the user's own clock; we store their
+  // UTC offset (captured client-side at save time, e.g. via
+  // `-new Date().getTimezoneOffset()`) rather than a full IANA tz name to
+  // keep the scheduler simple — this drifts by an hour across a DST change
+  // until the user re-opens Settings, which is an accepted trade-off, not an
+  // oversight.
+  // "Deactivate instead of delete": data kept, all scheduled nudges and
+  // wake-up calls paused. Signing in again clears it.
+  deactivatedAt           DateTime?          @map("deactivated_at")
+  wakeUpCallEnabled       Boolean            @default(false) @map("wake_up_call_enabled")
+  wakeUpCallTime          String?            @map("wake_up_call_time") // "HH:MM", user's local time
+  utcOffsetMinutes        Int?               @map("utc_offset_minutes")
+  wakeUpCallLastFiredDate String?            @map("wake_up_call_last_fired_date") // "YYYY-MM-DD" in user's local date — guards against firing twice in the same minute window
+  // "Your goal is about to fade" nudge — fires near the end of the user's
+  // day if they still have incomplete tasks or a streak they haven't
+  // touched today. nudgeFrequency can define more than one checkpoint per
+  // day (e.g. high_intensity), so this stores "YYYY-MM-DD@HH:MM" (date +
+  // which checkpoint already fired), not just a date like the wake-up call.
+  atRiskNudgeLastFiredKey String?            @map("at_risk_nudge_last_fired_key")
+  createdAt               DateTime           @default(now()) @map("created_at")
 
   goals                 Goal[]
   dailyTasks            DailyTask[]
@@ -24,8 +63,38 @@ model User {
   weeklyReviews         WeeklyReview[]
   accountabilityOwned   AccountabilityPartner[] @relation("user")
   accountabilityPartner AccountabilityPartner[] @relation("partner")
+  communityPosts        CommunityPost[]
+  postReactions         PostReaction[]
+  postComments          PostComment[]
+  groupMemberships      CommunityGroupMember[]
+  communityMessages     CommunityMessage[]
+  notifications         Notification[]
+  badges                UserBadge[]
+  aiChatSessions        AiChatSession[]
+  voiceCallSessions     VoiceCallSession[]
+  partnerMessagesSent   PartnerMessage[]        @relation("partnerMessagesSent")
 
   @@map("users")
+}
+
+enum NudgeFrequency {
+  sparse
+  balanced
+  high_intensity
+}
+
+enum AiPersonality {
+  encouraging
+  stoic
+  visionary
+  direct
+  analytical
+}
+
+enum ProgressVisibility {
+  only_me
+  trusted
+  community
 }
 
 enum Tier {
@@ -46,9 +115,11 @@ model Goal {
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   milestones     Milestone[]
+  yearlyTargets  YearlyTarget[]
   monthlyTargets MonthlyTarget[]
   weeklyFocuses  WeeklyFocus[]
   dailyTasks     DailyTask[]
+  communityPosts CommunityPost[]
 
   @@map("goals")
 }
@@ -68,16 +139,47 @@ enum GoalStatus {
 }
 
 model Milestone {
-  id         String     @id @default(uuid())
-  goalId     String     @map("goal_id")
-  title      String
-  targetDate DateTime?  @map("target_date")
-  status     ItemStatus @default(pending)
-  createdAt  DateTime   @default(now()) @map("created_at")
+  id                  String     @id @default(uuid())
+  goalId              String     @map("goal_id")
+  title               String
+  targetDate          DateTime?  @map("target_date")
+  status              ItemStatus @default(pending)
+  timeInvestedMinutes Int        @default(0) @map("time_invested_minutes")
+  reflection          String?
+  reflectionUpdatedAt DateTime?  @map("reflection_updated_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
 
-  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  goal      Goal                @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  subtasks  MilestoneSubtask[]
+  resources MilestoneResource[]
 
   @@map("milestones")
+}
+
+model MilestoneSubtask {
+  id          String   @id @default(uuid())
+  milestoneId String   @map("milestone_id")
+  title       String
+  completed   Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId, order])
+  @@map("milestone_subtasks")
+}
+
+model MilestoneResource {
+  id          String   @id @default(uuid())
+  milestoneId String   @map("milestone_id")
+  title       String
+  url         String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@map("milestone_resources")
 }
 
 model MonthlyTarget {
@@ -107,14 +209,19 @@ model WeeklyFocus {
 }
 
 model DailyTask {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  goalId      String?   @map("goal_id")
-  title       String
-  date        DateTime  @db.Date
-  completed   Boolean   @default(false)
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  goalId         String?   @map("goal_id")
+  title          String
+  date           DateTime  @db.Date
+  completed      Boolean   @default(false)
+  completedAt    DateTime? @map("completed_at")
+  scheduledStart String?   @map("scheduled_start") // "HH:MM", AI/plan-assigned time block
+  scheduledEnd   String?   @map("scheduled_end")
+  blockType      String?   @map("block_type") // deep_work | review | break | sync | custom
+  aiGenerated    Boolean   @default(false) @map("ai_generated")
+  order          Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
@@ -138,15 +245,15 @@ model HabitStreak {
 }
 
 model WeeklyReview {
-  id               String    @id @default(uuid())
-  userId           String    @map("user_id")
-  weekStart        DateTime  @map("week_start") @db.Date
-  completedCount   Int       @default(0) @map("completed_count")
-  blockedText      String?   @map("blocked_text")
-  carryForwardText String?   @map("carry_forward_text")
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  weekStart        DateTime @map("week_start") @db.Date
+  completedCount   Int      @default(0) @map("completed_count")
+  blockedText      String?  @map("blocked_text")
+  carryForwardText String?  @map("carry_forward_text")
   rating           Int?
-  aiInsight        String?   @map("ai_insight")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  aiInsight        String?  @map("ai_insight")
+  createdAt        DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -155,17 +262,40 @@ model WeeklyReview {
 }
 
 model AccountabilityPartner {
-  id            String            @id @default(uuid())
-  userId        String            @map("user_id")
-  partnerUserId String            @map("partner_user_id")
-  status        PartnershipStatus @default(pending)
-  createdAt     DateTime          @default(now()) @map("created_at")
+  id                 String            @id @default(uuid())
+  userId             String            @map("user_id")
+  partnerUserId      String            @map("partner_user_id")
+  status             PartnershipStatus @default(pending)
+  // Cooldown tracking for the "poke" nudge — one side at a time, so each
+  // direction gets its own timestamp rather than a single shared one.
+  userLastPokedAt    DateTime?         @map("user_last_poked_at") // userId -> partnerUserId
+  partnerLastPokedAt DateTime?         @map("partner_last_poked_at") // partnerUserId -> userId
+  createdAt          DateTime          @default(now()) @map("created_at")
 
-  user    User @relation("user", fields: [userId], references: [id], onDelete: Cascade)
-  partner User @relation("partner", fields: [partnerUserId], references: [id], onDelete: Cascade)
+  user     User             @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  partner  User             @relation("partner", fields: [partnerUserId], references: [id], onDelete: Cascade)
+  messages PartnerMessage[]
 
   @@unique([userId, partnerUserId])
   @@map("accountability_partners")
+}
+
+// Encouragement history between accountability partners: check-in notes,
+// encouragement and pokes, kept so either side can scroll back through them.
+model PartnerMessage {
+  id            String   @id @default(uuid())
+  partnershipId String   @map("partnership_id")
+  senderId      String   @map("sender_id")
+  kind          String   @default("note") // note | poke
+  body          String
+  liked         Boolean  @default(false) // hearted by the recipient
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  partnership AccountabilityPartner @relation(fields: [partnershipId], references: [id], onDelete: Cascade)
+  sender      User                  @relation("partnerMessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([partnershipId, createdAt])
+  @@map("partner_messages")
 }
 
 enum ItemStatus {
@@ -176,4 +306,220 @@ enum ItemStatus {
 enum PartnershipStatus {
   pending
   active
+}
+
+model CommunityPost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  goalId    String?  @map("goal_id")
+  kind      PostKind
+  headline  String
+  body      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      Goal?          @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  reactions PostReaction[]
+  comments  PostComment[]
+
+  @@index([userId, createdAt])
+  @@map("community_posts")
+}
+
+enum PostKind {
+  milestone
+  achievement
+  small_win
+}
+
+model PostReaction {
+  id        String       @id @default(uuid())
+  postId    String       @map("post_id")
+  userId    String       @map("user_id")
+  type      ReactionType
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_reactions")
+}
+
+enum ReactionType {
+  celebration
+  favorite
+  fire
+  thumbs_up
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("post_comments")
+}
+
+model CommunityGroup {
+  id        String   @id @default(uuid())
+  name      String
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  members  CommunityGroupMember[]
+  messages CommunityMessage[]
+
+  @@map("community_groups")
+}
+
+model CommunityGroupMember {
+  id       String   @id @default(uuid())
+  groupId  String   @map("group_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  group CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("community_group_members")
+}
+
+model CommunityMessage {
+  id        String   @id @default(uuid())
+  groupId   String   @map("group_id")
+  userId    String   @map("user_id")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@map("community_messages")
+}
+
+model Notification {
+  id        String               @id @default(uuid())
+  userId    String               @map("user_id")
+  category  NotificationCategory
+  title     String
+  body      String
+  actionUrl String?              @map("action_url")
+  read      Boolean              @default(false)
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationCategory {
+  ai_architect
+  accountability
+  system
+}
+
+model Badge {
+  id          String @id @default(uuid())
+  key         String @unique
+  label       String
+  description String
+  emoji       String
+
+  earnedBy UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id       String   @id @default(uuid())
+  userId   String   @map("user_id")
+  badgeKey String   @map("badge_key")
+  earnedAt DateTime @default(now()) @map("earned_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeKey], references: [key], onDelete: Cascade)
+
+  @@unique([userId, badgeKey])
+  @@map("user_badges")
+}
+
+model AiChatSession {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         AiChatMessage[]
+  voiceCallSession VoiceCallSession?
+
+  @@map("ai_chat_sessions")
+}
+
+model AiChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  role      String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("ai_chat_messages")
+}
+
+// The call-lifecycle wrapper around a Wake-Up Call. The actual turn-by-turn
+// conversation reuses AiChatSession/AiChatMessage (same model the text
+// Architect chat writes to) so both entry points produce identical data —
+// this model just tracks ringing/accepted/declined/duration, which a plain
+// chat session has no concept of.
+model VoiceCallSession {
+  id            String          @id @default(uuid())
+  userId        String          @map("user_id")
+  chatSessionId String?         @unique @map("chat_session_id")
+  status        VoiceCallStatus @default(scheduled)
+  scheduledFor  DateTime        @map("scheduled_for")
+  startedAt     DateTime?       @map("started_at")
+  endedAt       DateTime?       @map("ended_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatSession AiChatSession? @relation(fields: [chatSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("voice_call_sessions")
+}
+
+enum VoiceCallStatus {
+  scheduled
+  ringing
+  active
+  completed
+  declined
+  missed
+  failed
+}
+
+model YearlyTarget {
+  id        String     @id @default(uuid())
+  goalId    String     @map("goal_id")
+  year      Int
+  title     String
+  status    ItemStatus @default(pending)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, year])
+  @@map("yearly_targets")
 }

@@ -4,16 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "prisma generate && next build",
+    "start": "prisma migrate deploy && next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.9",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.1.7",
+    "openai": "^7.9.0",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
     "react": "19.2.4",
@@ -23,8 +28,18 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.8.0": true,
+    "prisma@7.8.0": true,
+    "sharp@0.34.5": true
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }

@@ -41,3 +41,19 @@ export function getUserFromRequest(req: NextRequest): JWTPayload | null {
     return null;
   }
 }
+
+// Short-lived tokens used only to carry the user's identity through a
+// third-party OAuth redirect (e.g. Google) as the `state` param — never the
+// long-lived session JWT, and never sent anywhere but back to our own
+// callback endpoint.
+export function signOAuthState(userId: string): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '10m' });
+}
+
+export function verifyOAuthState(state: string): { userId: string } | null {
+  try {
+    return jwt.verify(state, JWT_SECRET) as { userId: string };
+  } catch {
+    return null;
+  }
+}

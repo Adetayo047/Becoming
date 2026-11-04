@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +40,9 @@ export default function SignIn() {
       await saveToken(data.token);
       setToken(data.token);
       setUser(data.user);
+      if (data.reactivated) {
+        Alert.alert('Welcome back 👋', 'Your account is active again — your goals and history are right where you left them.');
+      }
 
       if (!data.user.onboardingComplete) {
         router.replace('/(onboarding)/step-1');
@@ -56,7 +58,7 @@ export default function SignIn() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <ScrollView
           contentContainerStyle={styles.container}

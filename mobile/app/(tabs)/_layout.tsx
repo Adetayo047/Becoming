@@ -1,68 +1,67 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Fonts } from '../../constants/theme';
+import { QuickTalkButton } from '../../components/ui/QuickTalkButton';
 
-interface TabIconProps {
-  emoji: string;
-  label: string;
-  focused: boolean;
-}
-
-function TabIcon({ emoji, label, focused }: TabIconProps) {
-  return (
-    <View style={styles.tabItem}>
-      <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>
-      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
-    </View>
-  );
+function TabEmoji({ emoji, focused }: { emoji: string; focused: boolean }) {
+  return <Text style={[styles.emoji, focused && styles.emojiActive]}>{emoji}</Text>;
 }
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarShowLabel: false,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🏠" label="Today" focused={focused} />
-          ),
+    <View style={styles.flex}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarLabelStyle: styles.label,
+          tabBarActiveTintColor: Colors.purple,
+          tabBarInactiveTintColor: Colors.text.muted,
         }}
-      />
-      <Tabs.Screen
-        name="goals/index"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🎯" label="Goals" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="📊" label="Growth" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="👤" label="Profile" focused={focused} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            tabBarLabel: 'Today',
+            tabBarIcon: ({ focused }) => <TabEmoji emoji="🏠" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="goals/index"
+          options={{
+            tabBarLabel: 'Goals',
+            tabBarIcon: ({ focused }) => <TabEmoji emoji="🎯" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            tabBarLabel: 'Growth',
+            tabBarIcon: ({ focused }) => <TabEmoji emoji="📊" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="community/index"
+          options={{
+            tabBarLabel: 'Community',
+            tabBarIcon: ({ focused }) => <TabEmoji emoji="👥" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            tabBarLabel: 'Profile',
+            tabBarIcon: ({ focused }) => <TabEmoji emoji="👤" focused={focused} />,
+          }}
+        />
+      </Tabs>
+      <QuickTalkButton />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   tabBar: {
     backgroundColor: Colors.white,
     borderTopWidth: 1,
@@ -71,16 +70,10 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingTop: 8,
   },
-  tabItem: {
-    alignItems: 'center',
-    gap: 2,
-  },
   emoji: { fontSize: 22, opacity: 0.5 },
   emojiActive: { opacity: 1 },
   label: {
     fontFamily: Fonts.medium,
     fontSize: 10,
-    color: Colors.text.muted,
   },
-  labelActive: { color: Colors.purple },
 });

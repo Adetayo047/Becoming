@@ -2,6 +2,7 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -53,6 +54,9 @@ export default function Welcome() {
           variant="ghost"
           style={styles.signInBtn}
         />
+        <TouchableOpacity onPress={() => router.push('/(auth)/walkthrough-1')} style={styles.tourBtn}>
+          <Text style={styles.tourText}>See how it works →</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -113,4 +117,6 @@ const styles = StyleSheet.create({
   pillText: { fontFamily: Fonts.medium, fontSize: 12, color: Colors.text.secondary },
   cta: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, gap: Spacing.sm },
   signInBtn: { paddingVertical: Spacing.sm },
+  tourBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
+  tourText: { fontFamily: Fonts.medium, fontSize: 13, color: Colors.text.muted },
 });

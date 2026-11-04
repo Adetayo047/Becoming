@@ -6,16 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform,
   Alert,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { goals as goalsApi } from '../../lib/api';
+import { goals as goalsApi, ai } from '../../lib/api';
 import { useGoalStore } from '../../lib/store';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { DatePickerField } from '../../components/ui/DatePickerField';
 import { Card } from '../../components/ui/Card';
 import { StepIndicator } from '../../components/onboarding/StepIndicator';
 import { Colors, Fonts, Spacing, Radius, CATEGORY_META, Category } from '../../constants/theme';
@@ -37,6 +38,8 @@ export default function CreateGoal() {
 
   // Step 1 — Milestones
   const [milestones, setMilestones] = useState(['', '', '']);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   // Step 2 — Monthly target
   const [monthlyTarget, setMonthlyTarget] = useState('');
@@ -63,16 +66,37 @@ export default function CreateGoal() {
     setMilestones((prev) => [...prev, '']);
   }
 
+  async function suggestMilestonesWithAI() {
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const { data, error } = await ai.suggestMilestones(title, category);
+      if (error || !data) {
+        setAiError(error ?? 'AI suggestions are unavailable right now');
+        return;
+      }
+      const suggested = data.milestones.slice(0, 6);
+      setMilestones(suggested.length >= 3 ? suggested : [...suggested, '', '', ''].slice(0, 6));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function saveGoal() {
     setSaving(true);
     try {
-      const { data: goal, error } = await goalsApi.create({
+      const { data: goal, error, upgrade } = await goalsApi.create({
         title: title.trim(),
         description: description.trim() || undefined,
         category,
         targetDate: targetDate || undefined,
+        milestones: milestones.map((m) => m.trim()).filter((m) => m.length > 2),
+        monthlyTarget: monthlyTarget.trim() || undefined,
+        weeklyFocus: weeklyFocus.trim() || undefined,
+        firstTask: firstTask.trim() || undefined,
       });
 
+      if (upgrade) return;
       if (error || !goal) throw new Error(error ?? 'Failed to create goal');
 
       addGoal({ ...goal, completionPercent: 0 });
@@ -93,7 +117,7 @@ export default function CreateGoal() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => (step > 0 ? setStep(step - 1) : router.back())}>
             <Text style={styles.backText}>{step > 0 ? '← Back' : '✕'}</Text>
@@ -126,7 +150,14 @@ export default function CreateGoal() {
               </View>
               <Input label="Goal Title" placeholder="e.g. Get a remote UX design role by December" value={title} onChangeText={setTitle} containerStyle={styles.field} />
               <Input label="Description (optional)" placeholder="Why does this matter to you?" value={description} onChangeText={setDescription} multiline numberOfLines={3} containerStyle={styles.field} />
-              <Input label="Target date (optional)" placeholder="YYYY-MM-DD e.g. 2026-12-31" value={targetDate} onChangeText={setTargetDate} containerStyle={styles.field} />
+              <DatePickerField
+                label="Target date (optional)"
+                value={targetDate}
+                onChange={setTargetDate}
+                placeholder="Select a target date"
+                minimumDate={new Date()}
+                containerStyle={styles.field}
+              />
             </View>
           )}
 
@@ -137,6 +168,16 @@ export default function CreateGoal() {
               <Card style={styles.goalPreview} variant="outlined">
                 <Text style={styles.goalPreviewText}>{title}</Text>
               </Card>
+
+              <TouchableOpacity onPress={suggestMilestonesWithAI} disabled={aiLoading} style={styles.aiSuggestBtn}>
+                {aiLoading ? (
+                  <ActivityIndicator size="small" color={Colors.purple} />
+                ) : (
+                  <Text style={styles.aiSuggestBtnText}>✨ Suggest milestones with AI</Text>
+                )}
+              </TouchableOpacity>
+              {aiError ? <Text style={styles.aiErrorText}>{aiError}</Text> : null}
+
               {milestones.map((m, i) => (
                 <View key={i} style={styles.milestoneRow}>
                   <View style={styles.milestoneNum}>
@@ -253,6 +294,9 @@ const styles = StyleSheet.create({
   milestoneInput: { flex: 1, backgroundColor: Colors.white, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 2, fontFamily: Fonts.regular, fontSize: 14, color: Colors.text.primary },
   addMilestoneBtn: { alignItems: 'center', paddingVertical: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.purple, borderStyle: 'dashed', marginTop: Spacing.sm },
   addMilestoneBtnText: { fontFamily: Fonts.medium, fontSize: 14, color: Colors.purple },
+  aiSuggestBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.sm + 2, borderRadius: Radius.md, backgroundColor: Colors.purple + '12', marginBottom: Spacing.md },
+  aiSuggestBtnText: { fontFamily: Fonts.semiBold, fontSize: 13, color: Colors.purple },
+  aiErrorText: { fontFamily: Fonts.regular, fontSize: 12, color: Colors.text.muted, marginBottom: Spacing.md, textAlign: 'center' },
   tipCard: { padding: Spacing.md, borderColor: Colors.orange + '40', backgroundColor: Colors.orange + '08' },
   tipTitle: { fontFamily: Fonts.semiBold, fontSize: 13, color: Colors.orangeDark, marginBottom: Spacing.sm },
   tipText: { fontFamily: Fonts.regular, fontSize: 13, color: Colors.text.secondary, lineHeight: 20 },

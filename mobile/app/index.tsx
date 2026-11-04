@@ -16,6 +16,11 @@ export default function Index() {
       return;
     }
 
+    if (user && !user.emailVerified) {
+      router.replace('/(auth)/verify-email');
+      return;
+    }
+
     if (user && !user.onboardingComplete) {
       router.replace('/(onboarding)/step-1');
       return;

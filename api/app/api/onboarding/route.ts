@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
 import { getUserFromRequest } from '@/app/lib/auth';
 import { ok, err, unauthorized, serverError } from '@/app/lib/response';
+import { currentMonthKey, todayKey, mondayOfWeek } from '@/app/lib/dates';
 
 // Called after onboarding step 3 — creates first goal + milestones, marks user done
 export async function POST(req: NextRequest) {
@@ -17,14 +18,9 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const today = now.toISOString().split('T')[0];
-
-    // Monday of current week
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
-    monday.setHours(0, 0, 0, 0);
+    const month = currentMonthKey(now);
+    const today = todayKey(now);
+    const monday = mondayOfWeek(now);
 
     // 1. Create goal
     const goal = await prisma.goal.create({
@@ -43,7 +39,8 @@ export async function POST(req: NextRequest) {
 
     if (validMilestones.length > 0) {
       await prisma.milestone.createMany({
-        data: validMilestones.map((title) => ({ goalId: goal.id, title: title.trim() })),
+        // 1ms apart so the list keeps the order it was given in.
+        data: validMilestones.map((title, i) => ({ goalId: goal.id, title: title.trim(), createdAt: new Date(Date.now() + i) })),
       });
     }
 
