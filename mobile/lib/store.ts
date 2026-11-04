@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiUser, ApiGoal, ApiTask } from './api';
 
 interface AuthState {
@@ -70,4 +71,30 @@ export const useGoalStore = create<GoalState>((set) => ({
     })),
   addTask: (task) => set((state) => ({ todayTasks: [task, ...state.todayTasks] })),
   addGoal: (goal) => set((state) => ({ goals: [goal, ...state.goals] })),
+}));
+
+// Per-device UI preferences — not account data, so they live in AsyncStorage
+// rather than the backend. A zustand store (not a bare AsyncStorage read) so
+// every subscriber — the floating QuickTalkButton and its Settings toggle —
+// reacts instantly to a change in the same session, not just after restart.
+export const QUICK_TALK_PREF_KEY = '@becoming_quick_talk_enabled';
+
+interface PrefsState {
+  quickTalkEnabled: boolean;
+  hydrated: boolean;
+  hydrate: () => Promise<void>;
+  setQuickTalkEnabled: (value: boolean) => void;
+}
+
+export const usePrefsStore = create<PrefsState>((set) => ({
+  quickTalkEnabled: true,
+  hydrated: false,
+  hydrate: async () => {
+    const v = await AsyncStorage.getItem(QUICK_TALK_PREF_KEY);
+    set({ quickTalkEnabled: v !== 'false', hydrated: true });
+  },
+  setQuickTalkEnabled: (value) => {
+    set({ quickTalkEnabled: value });
+    AsyncStorage.setItem(QUICK_TALK_PREF_KEY, String(value));
+  },
 }));

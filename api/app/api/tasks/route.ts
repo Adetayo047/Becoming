@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       include: {
         goal: { select: { title: true, category: true } },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
     });
 
     return ok(tasks);

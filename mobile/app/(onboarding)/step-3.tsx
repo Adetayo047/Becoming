@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { onboarding } from '../../lib/api';
+import { onboarding, accountability } from '../../lib/api';
 import { useAuthStore, useOnboardingStore } from '../../lib/store';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { StepIndicator } from '../../components/onboarding/StepIndicator';
 import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 
@@ -20,6 +21,25 @@ export default function OnboardingStep3() {
   const { setUser } = useAuthStore();
   const { firstGoalTitle, firstGoalCategory, reset } = useOnboardingStore();
   const [loading, setLoading] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState('');
+  const [inviteError, setInviteError] = useState('');
+
+  async function handleInviteAndContinue() {
+    if (!partnerEmail.trim()) return;
+    setLoading(true);
+    setInviteError('');
+    try {
+      const { error } = await accountability.invite(partnerEmail.trim());
+      if (error) {
+        setInviteError(error);
+        return;
+      }
+      await completeOnboarding();
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function completeOnboarding() {
     setLoading(true);
@@ -97,9 +117,29 @@ export default function OnboardingStep3() {
         <View style={styles.cta}>
           {loading ? (
             <ActivityIndicator color={Colors.purple} size="large" />
+          ) : showInvite ? (
+            <>
+              <Input
+                label="Partner's email"
+                placeholder="friend@email.com"
+                value={partnerEmail}
+                onChangeText={(t) => { setPartnerEmail(t); setInviteError(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                error={inviteError}
+                containerStyle={styles.inviteInput}
+              />
+              <Button title="Send Invite & Continue" onPress={handleInviteAndContinue} disabled={!partnerEmail.trim()} />
+              <Button
+                title="← Back"
+                onPress={() => setShowInvite(false)}
+                variant="ghost"
+                style={styles.skipBtn}
+              />
+            </>
           ) : (
             <>
-              <Button title="Invite My Partner Later" onPress={completeOnboarding} />
+              <Button title="Invite Partner" onPress={() => setShowInvite(true)} />
               <Button
                 title="Skip for now →"
                 onPress={completeOnboarding}
@@ -172,4 +212,5 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   skipBtn: { paddingVertical: Spacing.sm },
+  inviteInput: { marginBottom: Spacing.sm },
 });

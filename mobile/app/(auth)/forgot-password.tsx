@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { auth } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Colors, Fonts, Spacing } from '../../constants/theme';
@@ -16,15 +17,24 @@ export default function ForgotPassword() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  // Password reset requires email infrastructure — show confirmation UI
-  // and handle on the backend when email service is wired up
-  function handleReset() {
+  async function handleReset() {
     if (!email.trim()) {
       Alert.alert('Enter your email address');
       return;
     }
-    setSent(true);
+    setSending(true);
+    try {
+      const { error } = await auth.forgotPassword(email.trim());
+      if (error) {
+        Alert.alert('Something went wrong', error);
+        return;
+      }
+      setSent(true);
+    } finally {
+      setSending(false);
+    }
   }
 
   if (sent) {
@@ -72,7 +82,11 @@ export default function ForgotPassword() {
           containerStyle={styles.input}
         />
 
-        <Button title="Send Reset Link" onPress={handleReset} />
+        <Button title="Send Reset Link" onPress={handleReset} loading={sending} />
+
+        <TouchableOpacity onPress={() => router.push('/(auth)/reset-password')} style={styles.haveCode}>
+          <Text style={styles.haveCodeText}>Already have a reset code?</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -101,4 +115,6 @@ const styles = StyleSheet.create({
   },
   emailHighlight: { fontFamily: Fonts.semiBold, color: Colors.purple },
   btn: { marginTop: 'auto' },
+  haveCode: { alignItems: 'center', marginTop: Spacing.lg },
+  haveCodeText: { fontFamily: Fonts.medium, fontSize: 13, color: Colors.purple },
 });

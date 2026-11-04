@@ -75,10 +75,15 @@ export default function GoalsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Goals 🎯</Text>
-        <TouchableOpacity onPress={() => router.push('/goals/create')} style={styles.createBtn}>
-          <Text style={styles.createBtnText}>+ New</Text>
-        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1}>My Goals</Text>
+        <View style={styles.headerBtns}>
+          <TouchableOpacity onPress={() => router.push('/goal-architect-chat')} style={styles.aiBtn}>
+            <Text style={styles.aiBtnText}>🧭 AI Architect</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/goals/create')} style={styles.createBtn}>
+            <Text style={styles.createBtnText}>+ New</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.filters}>
@@ -121,8 +126,11 @@ export default function GoalsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.cream },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
-  title: { fontFamily: Fonts.bold, fontSize: 24, color: Colors.text.primary },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
+  title: { fontFamily: Fonts.bold, fontSize: 24, color: Colors.text.primary, flexShrink: 1 },
+  headerBtns: { flexDirection: 'row', gap: Spacing.sm },
+  aiBtn: { backgroundColor: Colors.surfaceContainer, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.md },
+  aiBtnText: { fontFamily: Fonts.semiBold, fontSize: 13, color: Colors.purple },
   createBtn: { backgroundColor: Colors.purple, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.md },
   createBtnText: { fontFamily: Fonts.semiBold, fontSize: 14, color: Colors.white },
   filters: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md, gap: Spacing.sm },

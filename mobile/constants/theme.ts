@@ -28,6 +28,16 @@ export const Colors = {
   background: '#FDF8F2',
   surface: '#FFFFFF',
   border: '#E9ECEF',
+
+  // M3-ish surface layers, added for the Community screens (see the Stitch
+  // wireframe export) — additive only, nothing above was renamed.
+  surfaceContainerLowest: '#FFFFFF',
+  surfaceContainerLow: '#F6F2FE',
+  surfaceContainer: '#F0ECF8',
+  surfaceContainerHigh: '#EBE6F2',
+  onSurfaceVariant: '#474554',
+  outline: '#787586',
+  outlineVariant: '#C8C4D7',
   text: {
     primary: '#1A1A2E',
     secondary: '#495057',
@@ -101,3 +111,37 @@ export const CATEGORY_META = {
 } as const;
 
 export type Category = keyof typeof CATEGORY_META;
+
+// Generic voice-line samples describing each AI tone — not AI output, not
+// attributed to any real user, just static preview copy for the Settings
+// screen's persona picker (mirrors api/app/lib/openai.ts's PERSONALITY_TONE,
+// which is what actually shifts the AI's real responses).
+export const PERSONALITY_META = {
+  encouraging: {
+    label: 'Encouraging',
+    emoji: '❤️',
+    preview: "You're making incredible strides today! Every small win is a building block for the future version of you.",
+  },
+  stoic: {
+    label: 'Stoic',
+    emoji: '🛡️',
+    preview: 'Focus on what you can control. The obstacle is the way. Your discipline is your freedom.',
+  },
+  visionary: {
+    label: 'Visionary',
+    emoji: '🚀',
+    preview: 'See the version of yourself years from now. Every action today is a pixel in that masterpiece.',
+  },
+  direct: {
+    label: 'Direct',
+    emoji: '⚡',
+    preview: 'Focus dipped today. Recalibrate — start your next block now.',
+  },
+  analytical: {
+    label: 'Analytical',
+    emoji: '📊',
+    preview: 'Your current alignment is trending up. Shifting deep work earlier could optimize for peak output.',
+  },
+} as const;
+
+export type AiPersonalityKey = keyof typeof PERSONALITY_META;

@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { ai } from '../../lib/api';
 import { useOnboardingStore } from '../../lib/store';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -29,21 +29,21 @@ export default function OnboardingStep2() {
   );
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [error, setError] = useState('');
 
   async function fetchAISuggestions(title: string) {
     if (title.length < 10) return;
     setLoadingAI(true);
+    setAiError('');
     try {
-      // Will call our Next.js API once set up — mock for now
-      await new Promise((r) => setTimeout(r, 800));
-      setAiSuggestions([
-        `Complete an online course in ${title.split(' ').slice(-2).join(' ')}`,
-        `Build 1 real project that demonstrates this skill`,
-        `Connect with 5 professionals already doing this`,
-      ]);
-    } catch {
-      // Silently fail — suggestions are optional
+      const { data, error } = await ai.suggestMilestones(title, selectedCategory);
+      if (error || !data) {
+        setAiError(error ?? 'AI suggestions are unavailable right now');
+        setAiSuggestions([]);
+        return;
+      }
+      setAiSuggestions(data.milestones);
     } finally {
       setLoadingAI(false);
     }
@@ -66,7 +66,7 @@ export default function OnboardingStep2() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <View style={styles.container}>
           {/* Progress */}
@@ -140,22 +140,30 @@ export default function OnboardingStep2() {
             />
 
             {/* AI milestone suggestions */}
-            {(loadingAI || aiSuggestions.length > 0) && (
+            {(loadingAI || aiSuggestions.length > 0 || aiError) && (
               <Card style={styles.aiCard} variant="outlined">
                 <View style={styles.aiHeader}>
                   <Text style={styles.aiIcon}>✨</Text>
                   <Text style={styles.aiTitle}>AI suggests these milestones</Text>
                   {loadingAI && <ActivityIndicator size="small" color={Colors.purple} />}
                 </View>
-                {aiSuggestions.map((s, i) => (
-                  <View key={i} style={styles.suggestion}>
-                    <View style={styles.suggestDot} />
-                    <Text style={styles.suggestText}>{s}</Text>
-                  </View>
-                ))}
-                <Text style={styles.aiNote}>
-                  You'll customise these in the next step.
-                </Text>
+                {aiError ? (
+                  <Text style={styles.aiErrorText}>{aiError}</Text>
+                ) : (
+                  <>
+                    {aiSuggestions.map((s, i) => (
+                      <View key={i} style={styles.suggestion}>
+                        <View style={styles.suggestDot} />
+                        <Text style={styles.suggestText}>{s}</Text>
+                      </View>
+                    ))}
+                    {aiSuggestions.length > 0 && (
+                      <Text style={styles.aiNote}>
+                        You'll customise these in the next step.
+                      </Text>
+                    )}
+                  </>
+                )}
               </Card>
             )}
 
@@ -250,6 +258,7 @@ const styles = StyleSheet.create({
   },
   aiIcon: { fontSize: 18 },
   aiTitle: { fontFamily: Fonts.semiBold, fontSize: 14, color: Colors.purple, flex: 1 },
+  aiErrorText: { fontFamily: Fonts.regular, fontSize: 13, color: Colors.text.muted },
   suggestion: {
     flexDirection: 'row',
     gap: Spacing.sm,

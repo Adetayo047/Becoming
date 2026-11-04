@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   Poppins_400Regular,
@@ -18,6 +19,7 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
+  const router = useRouter();
   const { setUser, setToken, setLoading } = useAuthStore();
 
   const [fontsLoaded] = useFonts({
@@ -48,6 +50,26 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
+
+  // Deep-links a tapped push notification (e.g. the Wake-Up Call) to its
+  // actionUrl even when the app was fully closed or backgrounded — tapping
+  // the row inside the in-app Notification Hub already does this via its
+  // own onPress; this covers a tap on the OS notification itself.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const actionUrl = response.notification.request.content.data?.actionUrl as string | undefined;
+      if (actionUrl) router.push(actionUrl as any);
+    });
+
+    // The app can also be launched BY tapping a notification (cold start) —
+    // addNotificationResponseReceivedListener alone misses that case.
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      const actionUrl = response?.notification.request.content.data?.actionUrl as string | undefined;
+      if (actionUrl) router.push(actionUrl as any);
+    });
+
+    return () => sub.remove();
+  }, []);
 
   if (!fontsLoaded) return null;
 

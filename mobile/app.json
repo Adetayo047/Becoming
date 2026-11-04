@@ -18,7 +18,13 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "package": "com.becoming.app",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -28,12 +34,33 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-notifications",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Becoming needs microphone access so you can talk to your AI Architect during a Wake-Up Call."
+        }
+      ],
+      "expo-build-properties"
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "03cdc632-4711-4dc8-8794-9fa212c4fc84"
       }
-    }
+    },
+    "owner": "adetee"
   }
 }

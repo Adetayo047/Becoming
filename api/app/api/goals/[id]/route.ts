@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
 import { getUserFromRequest } from '@/app/lib/auth';
+import { getLimits, upgradeRequired } from '@/app/lib/plans';
 import { ok, err, unauthorized, notFound, serverError } from '@/app/lib/response';
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest, { params }: Params) {
     const goal = await prisma.goal.findUnique({
       where: { id },
       include: {
-        milestones: { orderBy: { createdAt: 'asc' } },
+        milestones: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        yearlyTargets: { orderBy: { year: 'desc' } },
         monthlyTargets: { orderBy: { month: 'desc' } },
         weeklyFocuses: { orderBy: { weekStart: 'desc' } },
         dailyTasks: {
@@ -52,6 +54,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const body = await req.json();
     const { title, description, category, targetDate, status } = body;
+
+    if (status === 'active' && owned.status !== 'active') {
+      const limits = await getLimits(payload.userId);
+      const activeGoals = await prisma.goal.count({ where: { userId: payload.userId, status: 'active' } });
+      if (activeGoals >= limits.goals) {
+        return upgradeRequired(`The Free plan includes up to ${limits.goals} active goals. Upgrade to Pro for unlimited goals.`);
+      }
+    }
 
     const updated = await prisma.goal.update({
       where: { id },
